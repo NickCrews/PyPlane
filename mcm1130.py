@@ -4,6 +4,7 @@
 Created on Tue Sep 26 11:37:27 2017
 
 @author: MacobJiller
+# and nick crews
 """
 #import libs
 import random
@@ -13,10 +14,10 @@ Airbus320NEO cabin length = 90ft
 numSeats = 150
 90/25 = 3.6 ft/row
 
-one person: mu = 14s, sigma = 1.96
+one passenger: mu = 14s, sigma = 1.96
 two ppl: mu = 17s, sigma = 2.62
 
-person velocity = 4.6 ft/s OR 1.28 row/s
+passenger velocity = 4.6 ft/s OR 1.28 row/s
 
 bins = 49 bins / 90 ft
 
@@ -25,12 +26,15 @@ bins = 49 bins / 90 ft
 
 '''
 # import numpy as np
-random.seed(42)
+# random.seed(42)
 class Plane(object):
 
-    def __init__(self, params, numRows=25, seatsPerRow=6):
+    def __init__(self, numRows=25, seatsPerRow=6):
         self.numRows = numRows
         self.seatsPerRow = seatsPerRow
+        self.reset()
+
+    def reset(self):
         self.seats = [[None]*(self.seatsPerRow+1) for i in range(self.numRows)]
         self.overhead = [[False]*self.numRows, [False]*self.numRows]
 
@@ -70,30 +74,30 @@ class Plane(object):
         firstRow = self.seats[0]
         return firstRow[self.seatsPerRow//2] == None
 
-    def inAisle(self, person):
-        seatNum = self.letter2number(person.seat[1])
+    def inAisle(self, passenger):
+        seatNum = self.letter2number(passenger.seat[1])
         if seatNum < 3:
             numPpl = 0
-            for spot in self.seats[person.row][:seatNum]:
+            for spot in self.seats[passenger.row][:seatNum]:
                 if spot is not None:
                     numPpl+=1
             return numPpl
         else:
             numPpl = 0
-            for spot in self.seats[person.row][seatNum:]:
+            for spot in self.seats[passenger.row][seatNum:]:
                 if spot is not None:
                     numPpl+=1
             return numPpl
 
 
-    def addPerson(self, person):
+    def addPassenger(self, passenger):
         firstRow = self.seats[0]
-        firstRow[self.seatsPerRow//2] = person
+        firstRow[self.seatsPerRow//2] = passenger
 
-    def findPerson(self, person):
+    def findPassenger(self, passenger):
         for row in self.seats:
-            if person in row:
-                return (self.seats.index(row), row.index(person))
+            if passenger in row:
+                return (self.seats.index(row), row.index(passenger))
 
     def isEmptyInFront(self, rowNumber):
         if rowNumber+1 < self.numRows:
@@ -102,22 +106,22 @@ class Plane(object):
         else:
             return True
 
-    def moveForward(self, person):
-        row = person.row
+    def moveForward(self, passenger):
+        row = passenger.row
         self.seats[row][self.seatsPerRow//2] = None
         if row+1 < self.numRows:
-            self.seats[row+1][self.seatsPerRow//2] = person
+            self.seats[row+1][self.seatsPerRow//2] = passenger
 
     def allNonseated(self):
         aisleSpots = [row[self.seatsPerRow//2] for row in self.seats]
         return reversed([p for p in aisleSpots if p is not None])
 
-    def sitDown(self, person):
-        rowNumber, letter = person.seat
+    def sitDown(self, passenger):
+        rowNumber, letter = passenger.seat
         row = self.seats[rowNumber]
         row[self.seatsPerRow//2] = None
         seatNumber = self.letter2number(letter)
-        row[seatNumber] = person
+        row[seatNumber] = passenger
 
     def letter2number(self,letter):
         raw = ord(letter) - ord('a')
@@ -136,21 +140,27 @@ class Plane(object):
                 return False
         return True
 
-class Person(object):
+class BasePassenger(object):
     #need better numbers here
-    TIME_PER_BAG_MU    = 8
-    TIME_PER_BAG_SIGMA = 2
+    # TIME_PER_BAG_MU    = 8
+    # TIME_PER_BAG_SIGMA = 2
+    #
+    # TIME_AISLE_ONE_MU = 14
+    # TIME_AISLE_ONE_SIGMA = 1.96
+    # TIME_AISLE_TWO_MU = 17
+    # TIME_AISLE_TWO_SIGMA = 2.62
 
-    TIME_AISLE_ONE_MU = 14
-    TIME_AISLE_ONE_SIGMA = 1.96
-    TIME_AISLE_TWO_MU = 17
-    TIME_AISLE_TWO_SIGMA = 2.62
-
-    def __init__(self, plane, seat, params):
+    def __init__(self, plane, seat):
         self.plane = plane
-        self.speed = 1.0
         self.seat = seat
 
+        self.TIME_PER_BAG = random.normalvariate(self.TIME_PER_BAG_MU, self.TIME_PER_BAG_SIGMA)
+        self.TIME_PER_AISLE_ONE = random.normalvariate(self.TIME_AISLE_ONE_MU,self.TIME_AISLE_ONE_SIGMA)
+        self.TIME_PER_AISLE_TWO = random.normalvariate(self.TIME_AISLE_TWO_MU,self.TIME_AISLE_TWO_SIGMA)
+
+        self.reset()
+
+    def reset(self):
         self.row = 0
         self.col = self.plane.seatsPerRow//2
         self.isSeated = False
@@ -158,17 +168,13 @@ class Person(object):
         self.numBags = 2
         self.satisfaction = 100
 
-        self.TIME_PER_BAG = random.normalvariate(self.TIME_PER_BAG_MU, self.TIME_PER_BAG_SIGMA)
         self.bagTimer = -1
         self.is_bag_up = False
 
-        self.TIME_PER_AISLE_ONE = random.normalvariate(self.TIME_AISLE_ONE_MU,self.TIME_AISLE_ONE_SIGMA)
-        self.TIME_PER_AISLE_TWO = random.normalvariate(self.TIME_AISLE_TWO_MU,self.TIME_AISLE_TWO_SIGMA)
         self.aisleTimer = None
 
-
     def __repr__(self):
-        return "Person: Seat {} at {}".format(self.seat, self.row)
+        return "Passenger: Seat {} at {}".format(self.seat, self.row)
 
     def atRow(self):
         return self.seat[0] == self.row
@@ -180,14 +186,14 @@ class Person(object):
             if self.is_bag_up:
                 if self.aisleTimer == None:
                     self.aisleTimer = (self.TIME_PER_AISLE_ONE if self.plane.inAisle(self) == 1 else self.TIME_PER_AISLE_TWO if self.plane.inAisle(self) == 2 else 0)
-#                    print(self.aisleTimer)
+                #    print(self.aisleTimer)
                 elif self.aisleTimer <= 0:
                     self.sitDown()
                     return True
                 else:
                     self.aisleTimer-=1
             if not self.is_bag_up:
-#                print(self, 'at row!')
+            #    print(self, 'at row!')
                 if self.numBags > 0:
                     if self.plane.overheadEmpty(self.row):
                         self.plane.stowBag(self.row)
@@ -209,106 +215,114 @@ class Person(object):
         self.col = self.plane.letter2number(self.seat[1])
         self.plane.sitDown(self)
 
+class DefaultPassenger(BasePassenger):
+    #need better numbers here
+    TIME_PER_BAG_MU    = 8
+    TIME_PER_BAG_SIGMA = 2
+
+    TIME_AISLE_ONE_MU = 14
+    TIME_AISLE_ONE_SIGMA = 1.96
+    TIME_AISLE_TWO_MU = 17
+    TIME_AISLE_TWO_SIGMA = 2.62
+
 class Model(object):
 
-    DEFAULT_PARAMS = None,None
-    listData = []
-    listModel = []
-    index, lastIndex = 0, 0
+    DEFAULT_PARAMS = {'planeType':Plane, 'passengerType':DefaultPassenger, 'boardingStrategy':'random'}
 
-    def test(self, params=DEFAULT_PARAMS, minRuns=10, cutoffChange=1):
+    def sensitivityAnalysis(self):
+        inputs = cartesianProduct()
+        resultDict = {}
+        for inp in inputs:
+            result = self.test(params=inp)
+            resultDict[inp] = result
+        return resultDicts
+
+    def test(self, params=DEFAULT_PARAMS, minRuns=10, convergenceThreshold=.005, minConvergenceCount=5):
         assert minRuns > 1
         results = []
-        lastAverage = None
-        dev = 0
-        modelCount = 0
+        convergenceCount = 0
 
+        sim = Simulator(**params)
         while True:
             print("running the sim with params", params)
-            sim = Simulator(*params, modelNum = modelCount)
-            # order = Simulator(*params, modelNum = modelCount).startingOrder()
             results.append(sim.run())
             avg = sum(results)/len(results)
-            print("average this time was", avg)
-            self.index += 1
-            if len(results) > minRuns:
+            if len(results) > 1:
+                # did this run change the average by more than cutoffChange deviations?
+                prevResults = results[:-1]
+                prevAverage = sum(prevResults)/len(prevResults)
+                diff = abs(avg-prevAverage)
+                dev = stdDev(results)
+                print(results, diff, dev)
 
-                diff = abs(avg-lastAverage)
-                dev = self.stdDev(results)
-                print("dev and diff was", dev, diff)
-
-                if abs(dev - lastDev) < cutoffChange:
-                    print('Reached set convergence with', len(results), 'trials.')
-                    # print(order)
-
-                    self.genData(results, modelCount)
-                    modelCount +=1
-
-                    #convergence
-                    if modelCount == 3:
+                # did we converge this time?
+                if dev == 0.0 or diff/dev <= convergenceThreshold:
+                    # we need to converge multiple times in a row to be sure
+                    convergenceCount += 1
+                    if convergenceCount >= minConvergenceCount and len(results) >= minRuns:
+                        #convergence
                         break
-            lastAverage = avg
-            lastDev = dev
+                else:
+                    convergenceCount = 0
+            sim.reset()
 
-        print('Last StdDev was', lastDev)
-        print(modelCount)
-        avg = sum(results)/len(results)
-        return avg, dev, self.listData, self.listModel, results, order
+        return results
 
-    def stdDev(self,nums):
-        n = len(nums)
-        mean = sum(nums)/n
-        var_sum = sum([(val - mean)**2 for val in nums])
+def stdDev(nums):
+    n = len(nums)
+    mean = sum(nums)/n
+    var_sum = sum([(val - mean)**2 for val in nums])
 
-        #sample variance is defined as sum(x - avg) / (n - 1)
-        #as n approaches inf, sample var will = pop var
-        var = var_sum/(n - 1)
-        std = var**.5
-        return std
+    #sample variance is defined as sum(x - avg) / (n - 1)
+    #as n approaches inf, sample var will = pop var
+    var = var_sum/(n - 1)
+    std = var**.5
+    return std
 
-    def genData(self, modelResults, modelNum):
-        self.listData.append(modelResults[self.lastIndex:self.index])
-        self.listModel.append([modelNum] * (len(self.listData[modelNum])))
-        self.lastIndex = self.index
-        return self.listData,self.listModel
-
-
+    # def genData(self, modelResults, modelNum):
+    #     self.listData.append(modelResults[self.lastIndex:self.index])
+    #     self.listModel.append([modelNum] * (len(self.listData[modelNum])))
+    #     self.lastIndex = self.index
+    #     return self.listData,self.listModel
 
 class Simulator(object):
 
-    def __init__(self, planeParams, personParams, boardingStrategy):
-        self.plane = Plane(planeParams)
+    def __init__(self, planeType, passengerType, boardingStrategy):
+        self.PLANE_TYPE = planeType
+        self.PASSENGER_TYPE = passengerType
+
+        self.plane = self.PLANE_TYPE()
         seats = self.plane.generateAllSeats()
-        self.people = [Person(self.plane, seat, personParams) for seat in seats]
+        self.passengers = [self.PASSENGER_TYPE(self.plane, seat) for seat in seats]
+        self.boardingStrategy = boardingStrategy
 
-        self.queue = [p for p in self.people]
-#        random.shuffle(self.queue)
         self.ticks = 0
-        self.count = modelNum
-
+        self.queue = self.passengers.copy()
         self.order()
-
-#        sorted(self.queue, key = lambda p : p.seat[0], reverse=True)
 
     def reset(self):
-        self.queue = [p for p in self.people]
-#        random.shuffle(self.queue)
+        self.plane.reset()
+        seats = self.plane.generateAllSeats()
+        self.passengers = [self.PASSENGER_TYPE(self.plane, seat) for seat in seats]
         self.ticks = 0
+        self.queue = self.passengers.copy()
         self.order()
 
-
     def run(self):
+        # print('starting run with')
+        # print(self.plane)
+        # print(self.passengers)
+        # print(self.queue)
+        # print(self.ticks)
         while not self.plane.isFull():
             self.ticks+=1
             self.update()
 
-        print("done.")
-        print(self.plane)
+        # print("done.")
+        # print(self.plane)
         print(self.ticks)
-        self.count += 1
         return self.ticks
 
-fsdf
     def update(self):
         for p in self.plane.allNonseated():
             p.act()
@@ -317,33 +331,44 @@ fsdf
             if len(self.queue) > 0:
                 p = self.queue.pop()
                 p.onPlane = True
-                self.plane.addPerson(p)
-
+                self.plane.addPassenger(p)
 
     #defining various boarding procedures
     def order(self):
-        if self.count == 0:
+        if self.boardingStrategy == 'random':
             random.shuffle(self.queue)
-        if self.count == 1:
-            self.queue = sorted(self.queue, key = lambda person : person.seat[0], reverse=True)
-        if self.count == 2:
-            self.queue = sorted(self.queue, key = lambda person : person.seat[0])
+        if self.boardingStrategy == 'backFirst':
+            self.queue.sort(key = lambda passenger : passenger.seat[0], reverse=True)
+        if self.boardingStrategy == 'frontFirst':
+            self.queue.sort( key = lambda passenger : passenger.seat[0])
 
-        return self.queue
 
+def runningAvgs(results):
+    runningAvgs = []
+    for i in range(1, len(results)):
+        part = results[:i]
+        avg = sum(part)/len(part)
+        runningAvgs.append(avg)
+    return runningAvgs
 
 #run simulation
 if __name__== "__main__":
     print('Running')
     m = Model()
     res = m.test()
-    print(('Average was %s seconds and StdDev was %s seconds') % (res[0],res[1]))
+    print(res)
+    avgs = runningAvgs(res)
+    import matplotlib.pyplot as plt
+    plt.plot(res)
+    plt.plot(avgs)
+    plt.show()
+    # print(('Average was %s seconds and StdDev was %s seconds') % (res[0],res[1]))
 
-raw_seconds, raw_model = [],[]
-for w, z in zip(res[2],res[3]):
-    for x,y in zip(w,z):
-        raw_seconds.append(x)
-        raw_model.append(y)
+# raw_seconds, raw_model = [],[]
+# for w, z in zip(res[2],res[3]):
+#     for x,y in zip(w,z):
+#         raw_seconds.append(x)
+#         raw_model.append(y)
 
-data = pd.DataFrame({'Model':raw_model,'Seconds':raw_seconds})
-data = data.join(pd.get_dummies(data['Model'],prefix='Model'))
+# data = pd.DataFrame({'Model':raw_model,'Seconds':raw_seconds})
+# data = data.join(pd.get_dummies(data['Model'],prefix='Model'))

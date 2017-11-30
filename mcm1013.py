@@ -89,11 +89,11 @@ class Plane(object):
             return numPpl
 
 
-    def addPerson(self, person):
+    def addPassenger(self, person):
         firstRow = self.seats[0]
         firstRow[self.seatsPerRow//2] = person
 
-    def findPerson(self, person):
+    def findPassenger(self, person):
         for row in self.seats:
             if person in row:
                 return (self.seats.index(row), row.index(person))
@@ -139,7 +139,7 @@ class Plane(object):
                 return False
         return True
 
-class Person(object):
+class Passenger(object):
 
     #need better numbers here
     TIME_PER_BAG_MU    = 8
@@ -174,7 +174,7 @@ class Person(object):
         self.sitDownTime = -1
 
     def __repr__(self):
-        return "Person: Seat {} at {}".format(self.seat, self.row)
+        return "Passenger: Seat {} at {}".format(self.seat, self.row)
 
     def atRow(self):
         return self.seat[0] == self.row
@@ -221,7 +221,7 @@ class Simulation(object):
     def __init__(self):
         self.plane = Plane()
         seats = self.plane.generateAllSeats()
-        self.people = [Person(self, seat) for seat in seats]
+        self.people = [Passenger(self, seat) for seat in seats]
 
         self.queue = [p for p in self.people]
         random.shuffle(self.queue)
@@ -268,7 +268,7 @@ class Simulation(object):
             if len(self.queue) > 0:
                 p = self.queue.pop()
                 p.onPlane = True
-                self.plane.addPerson(p)
+                self.plane.addPassenger(p)
         return vizChanged
 
     def calculateResults(self):
