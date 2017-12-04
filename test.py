@@ -1,29 +1,64 @@
-from pyqtgraph.Qt import QtGui, QtCore
+import initExample
+from pyqtgraph.Qt import QtGui, QtCore, USE_PYSIDE
+
+import numpy as np
 import pyqtgraph as pg
-from pyqtgraph.widgets.RemoteGraphicsView import RemoteGraphicsView
-app = pg.mkQApp()
+from pyqtgraph.ptime import time
 
-print('here')
-## Create the widget
-v = RemoteGraphicsView(debug=False)  # setting debug=True causes both processes to print information
-                                # about interprocess communication
-print('now herers')
-v.show()
-v.setWindowTitle('pyqtgraph example: RemoteGraphicsView')
-print('3')
-## v.pg is a proxy to the remote process' pyqtgraph module. All attribute
-## requests and function calls made with this object are forwarded to the
-## remote process and executed there. See pyqtgraph.multiprocess.remoteproxy
-## for more inormation.
-plt = v.pg.PlotItem()
-print('adfsd')
-v.setCentralItem(plt)
-print('4')
-x,y = [1,4,2,3,6,2,3,4,2,3],[1,2,3,5,7,4,3,5,8,9]
-plt.plot(x,y, pen=None, symbol='o',symbolSize=0.2, pxMode=False)
-print('5')
+#QtGui.QApplication.setGraphicsSystem('raster')
+app = QtGui.QApplication([])
+#mw = QtGui.QMainWindow()
+#mw.resize(800,800)
+if USE_PYSIDE:
+    from ScatterPlotSpeedTestTemplate_pyside import Ui_Form
+else:
+    from ScatterPlotSpeedTestTemplate_pyqt import Ui_Form
 
-## Start Qt event loop unless running in interactive mode or using pyside.
+win = QtGui.QWidget()
+win.setWindowTitle('pyqtgraph example: ScatterPlotSpeedTest')
+ui = Ui_Form()
+ui.setupUi(win)
+win.show()
+
+p = ui.plot
+print(p)
+p.setRange(xRange=[-500, 500], yRange=[-500, 500])
+
+data = np.random.normal(size=(50,500), scale=100)
+sizeArray = (np.random.random(500) * 20.).astype(int)
+ptr = 0
+lastTime = time()
+fps = None
+def update():
+    global curve, data, ptr, p, lastTime, fps
+    p.clear()
+    if ui.randCheck.isChecked():
+        size = sizeArray
+    else:
+        size = ui.sizeSpin.value()
+    curve = pg.ScatterPlotItem(x=data[ptr%50], y=data[(ptr+1)%50],
+                               pen='w', brush='b', size=size,
+                               pxMode=ui.pixelModeCheck.isChecked())
+    p.addItem(curve)
+    ptr += 1
+    now = time()
+    dt = now - lastTime
+    lastTime = now
+    if fps is None:
+        fps = 1.0/dt
+    else:
+        s = np.clip(dt*3., 0, 1)
+        fps = fps * (1-s) + (1.0/dt) * s
+    p.setTitle('%0.2f fps' % fps)
+    p.repaint()
+    #app.processEvents()  ## force complete redraw for every plot
+timer = QtCore.QTimer()
+timer.timeout.connect(update)
+timer.start(0)
+
+
+
+## Start Qt event loop unless running in interactive mode.
 if __name__ == '__main__':
     import sys
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):

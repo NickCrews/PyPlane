@@ -8,6 +8,7 @@ Created on Tue Sep 26 11:37:27 2017
 """
 #import libs
 import random
+import numpy as np
 # import pandas as pd
 import visualize
 '''
@@ -296,6 +297,10 @@ class Model(object):
             resultDict[inp] = result
         return resultDicts
 
+    @classmethod
+    def createPassengerTypes():
+        bagTimes = np.
+
     def test(self, params=Simulator.DEFAULT_PARAMS, minRuns=10, convergenceThreshold=.005, minConvergenceCount=5):
         assert minRuns > 1
         results = []
@@ -360,21 +365,23 @@ def toMinutesAndSeconds(seconds):
 
 #run simulation
 if __name__== "__main__":
-    # sim = Simulator()
-    # viz = visualize.Visualizer(sim)
-    # sim.run()
+    sim = Simulator()
+    viz = visualize.Visualizer(sim)
+    # import time
+    # time.sleep(2)
+    sim.run()
 
-    print('Running')
-    m = Model()
-    res = m.test()
-    print(res),
-    print('time needed was {}:{}'.format(*toMinutesAndSeconds(avg(res))))
-    avgs = runningAvgs(res)
-    import matplotlib.pyplot as plt
-    plt.plot(res)
-    plt.plot(avgs)
-    plt.show()
-    print(('Average was %s seconds and StdDev was %s seconds') % (res[0],res[1]))
+    # print('Running')
+    # m = Model()
+    # res = m.test()
+    # print(res),
+    # print('time needed was {}:{}'.format(*toMinutesAndSeconds(avg(res))))
+    # avgs = runningAvgs(res)
+    # import matplotlib.pyplot as plt
+    # plt.plot(res)
+    # plt.plot(avgs)
+    # plt.show()
+    # print(('Average was %s seconds and StdDev was %s seconds') % (res[0],res[1]))
 
 # raw_seconds, raw_model = [],[]
 # for w, z in zip(res[2],res[3]):
