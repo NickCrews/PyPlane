@@ -8,7 +8,8 @@ Created on Tue Sep 26 11:37:27 2017
 """
 #import libs
 import random
-import pandas as pd
+# import pandas as pd
+import visualize
 '''
 Airbus320NEO cabin length = 90ft
 numSeats = 150
@@ -227,17 +228,19 @@ class DefaultPassenger(BasePassenger):
 
 class Simulator(object):
 
-    def __init__(self, planeType, passengerType, boardingStrategy):
-        self.PLANE_TYPE = planeType
-        self.PASSENGER_TYPE = passengerType
+    DEFAULT_PARAMS = {'planeType':Plane, 'passengerType':DefaultPassenger, 'boardingStrategy':'random'}
+
+    def __init__(self, params=DEFAULT_PARAMS):
+        self.PLANE_TYPE = params['planeType']
+        self.PASSENGER_TYPE = params['passengerType']
 
         self.plane = self.PLANE_TYPE()
         seats = self.plane.generateAllSeats()
         self.passengers = [self.PASSENGER_TYPE(self.plane, seat) for seat in seats]
-        self.boardingStrategy = boardingStrategy
+        self.boardingStrategy = params['boardingStrategy']
 
         self.ticks = 0
-        self.queue = self.passengers.copy()
+        self.queue = list(self.passengers)
         self.order()
 
     def reset(self):
@@ -264,6 +267,7 @@ class Simulator(object):
         return self.ticks
 
     def update(self):
+        # print('updating!')
         for p in self.plane.allNonseated():
             p.act()
 
@@ -282,10 +286,7 @@ class Simulator(object):
         if self.boardingStrategy == 'frontFirst':
             self.queue.sort( key = lambda passenger : passenger.seat[0])
 
-
 class Model(object):
-
-    DEFAULT_PARAMS = {'planeType':Plane, 'passengerType':DefaultPassenger, 'boardingStrategy':'random'}
 
     def sensitivityAnalysis(self):
         inputs = cartesianProduct()
@@ -295,12 +296,12 @@ class Model(object):
             resultDict[inp] = result
         return resultDicts
 
-    def test(self, params=DEFAULT_PARAMS, minRuns=10, convergenceThreshold=.005, minConvergenceCount=5):
+    def test(self, params=Simulator.DEFAULT_PARAMS, minRuns=10, convergenceThreshold=.005, minConvergenceCount=5):
         assert minRuns > 1
         results = []
         convergenceCount = 0
 
-        sim = Simulator(**params)
+        sim = Simulator(params)
         while True:
             print("running the sim with params", params)
             results.append(sim.run())
@@ -343,8 +344,6 @@ def stdDev(nums):
     #     self.lastIndex = self.index
     #     return self.listData,self.listModel
 
-
-
 def runningAvgs(results):
     runningAvgs = []
     for i in range(1, len(results)):
@@ -361,6 +360,10 @@ def toMinutesAndSeconds(seconds):
 
 #run simulation
 if __name__== "__main__":
+    # sim = Simulator()
+    # viz = visualize.Visualizer(sim)
+    # sim.run()
+
     print('Running')
     m = Model()
     res = m.test()
@@ -371,7 +374,7 @@ if __name__== "__main__":
     plt.plot(res)
     plt.plot(avgs)
     plt.show()
-    # print(('Average was %s seconds and StdDev was %s seconds') % (res[0],res[1]))
+    print(('Average was %s seconds and StdDev was %s seconds') % (res[0],res[1]))
 
 # raw_seconds, raw_model = [],[]
 # for w, z in zip(res[2],res[3]):
