@@ -289,17 +289,62 @@ class Simulator(object):
 
 class Model(object):
 
+
     def sensitivityAnalysis(self):
-        inputs = cartesianProduct()
+        passTypes = self.createPassengerTypes()
+        inputs = [{'planeType':Plane, 'passengerType':pt, 'boardingStrategy':'random'} for pt in passTypes]
         resultDict = {}
         for inp in inputs:
             result = self.test(params=inp)
             resultDict[inp] = result
-        return resultDicts
+        self.viewSensitivityAnalysis(resultDict)
 
-    @classmethod
+    @staticmethod
+    def viewSensitivityAnalysis(resultDict):
+        results = bagTimes = sitDownTimes1 = sitDownTimes2 = []
+        for inputs, result in resultDict.items():
+            results.append(result)
+            pt = inputs['passengerType']
+            bagTimes.append(pt.TIME_PER_BAG_MU)
+            sitDownTimes1.append(pt.TIME_AISLE_ONE_MU)
+            sitDownTimes2.append(pt.TIME_AISLE_TWO_MU)
+
+        import matplotlib.pyplot as plt
+        fig = plt.figure('bagTimes and sitDown1')
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot_surface(bagTimes, sitDownTimes1, results)
+
+        fig = plt.figure('bagTimes and sitDown2')
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot_surface(bagTimes, sitDownTimes2, results)
+
+        fig = plt.figure('sitDown1 and sitDown2')
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot_surface(sitDownTimes1, sitDownTimes2, results)
+
+        plt.show()
+
+
+    @staticmethod
     def createPassengerTypes():
-        bagTimes = np.
+        bagTimes = np.linspace(5,20,5)
+        sitDown1Times = np.linspace(10,25,5)
+        sitDown2Times = np.linspace(15,30,5)
+
+        from sklearn.utils.extmath import cartesian
+        passTypes = []
+        for bt, sd1, sd2 in cartesian((bagTimes, sitDown1Times, sitDown2Times)):
+            class CustomPassenger(BasePassenger):
+                TIME_PER_BAG_MU    = bt
+                TIME_PER_BAG_SIGMA = bt/6
+
+                TIME_AISLE_ONE_MU = sd1
+                TIME_AISLE_ONE_SIGMA = sd1/6
+                TIME_AISLE_TWO_MU = sd2
+                TIME_AISLE_TWO_SIGMA = sd2/6
+            passTypes.append(CustomPassenger)
+        return passTypes
+
 
     def test(self, params=Simulator.DEFAULT_PARAMS, minRuns=10, convergenceThreshold=.005, minConvergenceCount=5):
         assert minRuns > 1
