@@ -41,7 +41,7 @@ class Visualizer(object):
 
         timer = QtCore.QTimer()
         timer.timeout.connect(update)
-        timer.start(1000//30)
+        timer.start(1000//300)
         ## Start Qt event loop
         QtGui.QApplication.exec_()
 
@@ -62,6 +62,7 @@ class Visualizer(object):
     def show(self):
         spots = []
         for p in self.sim.passengers:
+            info = (p.row, p.col,p.isSeated,)
             pos = (p.row, p.col)
             # fillColor = pg.intColor(p.row, 100)
             if p.isSeated:

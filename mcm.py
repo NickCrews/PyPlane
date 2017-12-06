@@ -39,6 +39,7 @@ class Plane(object):
     def reset(self):
         self.seats = [[None]*(self.seatsPerRow+1) for i in range(self.numRows)]
         self.overhead = [[False]*self.numRows, [False]*self.numRows]
+        self.nonSeated = []
 
     def generateAllSeats(self):
         listTuples = []
@@ -95,6 +96,7 @@ class Plane(object):
     def addPassenger(self, passenger):
         firstRow = self.seats[0]
         firstRow[self.seatsPerRow//2] = passenger
+        self.nonSeated.append(passenger)
 
     def findPassenger(self, passenger):
         for row in self.seats:
@@ -114,16 +116,13 @@ class Plane(object):
         if row+1 < self.numRows:
             self.seats[row+1][self.seatsPerRow//2] = passenger
 
-    def allNonseated(self):
-        aisleSpots = [row[self.seatsPerRow//2] for row in self.seats]
-        return reversed([p for p in aisleSpots if p is not None])
-
     def sitDown(self, passenger):
         rowNumber, letter = passenger.seat
         row = self.seats[rowNumber]
         row[self.seatsPerRow//2] = None
         seatNumber = self.letter2number(letter)
         row[seatNumber] = passenger
+        self.nonSeated.remove(passenger)
 
     def letter2number(self,letter):
         raw = ord(letter) - ord('a')
@@ -264,12 +263,11 @@ class Simulator(object):
 
         # print("done.")
         # print(self.plane)
-        print(self.ticks)
         return self.ticks
 
     def update(self):
         # print('updating!')
-        for p in self.plane.allNonseated():
+        for p in self.plane.nonSeated:
             p.act()
 
         if self.plane.isBoardingSpotEmpty():
@@ -289,25 +287,57 @@ class Simulator(object):
 
 class Model(object):
 
+    SENSITIVITY_FILENAME = 'sensitivity.pkl'
 
-    def sensitivityAnalysis(self):
+    def runSensitivityAnalysis(self):
         passTypes = self.createPassengerTypes()
         inputs = [{'planeType':Plane, 'passengerType':pt, 'boardingStrategy':'random'} for pt in passTypes]
         resultDict = {}
         for inp in inputs:
             result = self.test(params=inp)
-            resultDict[inp] = result
-        self.viewSensitivityAnalysis(resultDict)
+            # make our input dict hashable
+            key = tuple(sorted(inp.items()))
+            resultDict[key] = result
+        return resultDict
+
+    def getAnalysisData(self):
+        try:
+            return openSensitivityAnalysis()
+        except:
+            data = self.runSensitivityAnalysis()
+            lists = self.convertToLists(data)
+            self.saveSensitivityAnalysis(lists)
+            return lists
 
     @staticmethod
-    def viewSensitivityAnalysis(resultDict):
+    def saveSensitivityAnalysis(resultLists):
+        with open(Model.SENSITIVITY_FILENAME, 'wb') as f:
+            import pickle
+            pickle.dump(resultLists, f)
+
+    @staticmethod
+    def openSensitivityAnalysis():
+        with open(Model.SENSITIVITY_FILENAME, 'rb') as f:
+            import pickle
+            return pickle.load(f)
+
+    @staticmethod
+    def convertToLists(resultDict):
         results = bagTimes = sitDownTimes1 = sitDownTimes2 = []
         for inputs, result in resultDict.items():
             results.append(result)
-            pt = inputs['passengerType']
+            for key, val in inputs:
+                if key == 'passengerType':
+                    pt = val
+                    break
             bagTimes.append(pt.TIME_PER_BAG_MU)
             sitDownTimes1.append(pt.TIME_AISLE_ONE_MU)
             sitDownTimes2.append(pt.TIME_AISLE_TWO_MU)
+        return bagTimes, sitDownTimes1, sitDownTimes2, results
+
+    @staticmethod
+    def viewSensitivityAnalysis(resultLists):
+        results = bagTimes = sitDownTimes1 = sitDownTimes2 = resultLists
 
         import matplotlib.pyplot as plt
         fig = plt.figure('bagTimes and sitDown1')
@@ -324,6 +354,9 @@ class Model(object):
 
         plt.show()
 
+    def sensitivityAnalysis(self):
+        data = self.getAnalysisData()
+        self.viewSensitivityAnalysis(data)
 
     @staticmethod
     def createPassengerTypes():
@@ -346,23 +379,25 @@ class Model(object):
         return passTypes
 
 
-    def test(self, params=Simulator.DEFAULT_PARAMS, minRuns=10, convergenceThreshold=.005, minConvergenceCount=5):
+    def test(self, params=Simulator.DEFAULT_PARAMS, minRuns=10, convergenceThreshold=.05, minConvergenceCount=5):
         assert minRuns > 1
         results = []
         convergenceCount = 0
 
         sim = Simulator(params)
+        print("running the model with params", params)
         while True:
-            print("running the sim with params", params)
             results.append(sim.run())
             avg = sum(results)/len(results)
+            pretty = toMinutesAndSeconds(avg)
+            print('epoch {} has average {}:{}'.format(len(results), *pretty))
             if len(results) > 1:
                 # did this run change the average by more than cutoffChange deviations?
                 prevResults = results[:-1]
                 prevAverage = sum(prevResults)/len(prevResults)
                 diff = abs(avg-prevAverage)
                 dev = stdDev(results)
-                print(results, diff, dev)
+                # print(results, diff, dev)
 
                 # did we converge this time?
                 if dev == 0.0 or diff/dev <= convergenceThreshold:
@@ -370,11 +405,11 @@ class Model(object):
                     convergenceCount += 1
                     if convergenceCount >= minConvergenceCount and len(results) >= minRuns:
                         #convergence
+                        print('CONVERGENCE')
                         break
                 else:
                     convergenceCount = 0
             sim.reset()
-
         return results
 
 def stdDev(nums):
@@ -410,14 +445,15 @@ def toMinutesAndSeconds(seconds):
 
 #run simulation
 if __name__== "__main__":
-    sim = Simulator()
-    viz = visualize.Visualizer(sim)
+    # sim = Simulator()
+    # viz = visualize.Visualizer(sim)
     # import time
     # time.sleep(2)
-    sim.run()
+    # sim.run()
 
     # print('Running')
-    # m = Model()
+    m = Model()
+    m.sensitivityAnalysis()
     # res = m.test()
     # print(res),
     # print('time needed was {}:{}'.format(*toMinutesAndSeconds(avg(res))))
