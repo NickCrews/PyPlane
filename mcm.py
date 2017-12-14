@@ -399,8 +399,8 @@ class Model(object):
             ax.plot_trisurf(dev(x1),dev(x2),dev(Z), cmap=cm.coolwarm)
             ax.set_xlabel('{} (mean {} seconds)'.format(var1, avg(x1)))
             ax.set_ylabel('{} (mean {} seconds)'.format(var2, avg(x2)))
-            m, s = toMinutesAndSeconds(round(avg(Z))
-            ax.set_zlabel('Average Boarding Time (mean {}:{:.0f})'.format(m, s)))
+            m, s = toMinutesAndSeconds(round(avg(Z)))
+            ax.set_zlabel('Average Boarding Time (mean {}:{:.0f})'.format(m, s))
 
         plt.show()
 
@@ -512,9 +512,8 @@ def sensitivityAnalysis():
     data = m.getAnalysisData()
     m.viewSensitivityAnalysis(data)
 
-def visualizeRun():
+def visualizeRun(boardingStrategy):
     # strategies = ['random', 'backFirst', 'frontFirst']
-    boardingStrategy = 'backFirst'
     p = {'planeType':Plane, 'passengerType':DefaultPassenger, 'boardingStrategy':boardingStrategy}
     sim = Simulator(params=p)
     viz = visualize.Visualizer(sim)
@@ -543,6 +542,6 @@ def visualizeConvergence():
     plt.show()
 
 if __name__== "__main__":
-    # visualizeRun()
+    visualizeRun('random')
     # visualizeConvergence()
-    sensitivityAnalysis()
+    # sensitivityAnalysis()
