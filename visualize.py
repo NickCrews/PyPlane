@@ -59,6 +59,9 @@ class Visualizer(object):
             return result
         simulator.update = newUpdate
 
+    def detach(self):
+        self.sim.update = mcm.Simulator.update(self.sim)
+
     def show(self):
         spots = []
         for p in self.sim.passengers:

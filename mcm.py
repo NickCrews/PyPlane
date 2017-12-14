@@ -78,16 +78,17 @@ class Plane(object):
         return firstRow[self.seatsPerRow//2] == None
 
     def inAisle(self, passenger):
-        seatNum = self.letter2number(passenger.seat[1])
-        if seatNum < 3:
-            numPpl = 0
-            for spot in self.seats[passenger.row][:seatNum]:
+        seatNum = self.letter2number(passenger.seat[1])
+        aisle = self.seatsPerRow//2
+        if seatNum < aisle:
+            numPpl = 0
+            for spot in self.seats[passenger.row][seatNum+1:aisle]:
                 if spot is not None:
                     numPpl+=1
             return numPpl
         else:
             numPpl = 0
-            for spot in self.seats[passenger.row][seatNum:]:
+            for spot in self.seats[passenger.row][aisle+1:seatNum]:
                 if spot is not None:
                     numPpl+=1
             return numPpl
@@ -272,7 +273,7 @@ class Simulator(object):
 
         if self.plane.isBoardingSpotEmpty():
             if len(self.queue) > 0:
-                p = self.queue.pop()
+                p = self.queue.pop(0)
                 p.onPlane = True
                 self.plane.addPassenger(p)
 
@@ -292,18 +293,26 @@ class Model(object):
     def runSensitivityAnalysis(self):
         passTypes = self.createPassengerTypes()
         inputs = [{'planeType':Plane, 'passengerType':pt, 'boardingStrategy':'random'} for pt in passTypes]
-        resLists = [['BagTime'],['AisleOne'],['AisleTwo'],['BoardingTime']]
-
-        for inp in inputs:
-            result = self.test(params=inp)
-            list_inputs = [inp['passengerType'].TIME_PER_BAG_MU,inp['passengerType'].TIME_AISLE_ONE_MU,inp['passengerType'].TIME_AISLE_TWO_MU]
-            # make our input dict hashable
-            list_data = [[x]*len(result) for x in list_inputs]
-            list_data.append(result)
-            for num,data in enumerate(list_data):
-                resLists[num] += data
-
-        return resLists
+        # resLists = [['BagTime'],['AisleOne'],['AisleTwo'],['BoardingTime']]
+        variables = ['BagTime', 'AisleOne', 'AisleTwo','BoardingTime']
+        resultDict = {var:[] for var in variables}
+        print('testing on {} inputs'.format(len(inputs)))
+        for i, inp in enumerate(inputs):
+            print('running input number {}'.format(i))
+            results = self.test(params=inp, convergenceThreshold=.01)
+            avgResult = avg(results)
+            resultDict['BoardingTime'].append(avgResult)
+            pt = inp['passengerType']
+            resultDict['BagTime'].append(pt.TIME_PER_BAG_MU)
+            resultDict['AisleOne'].append(pt.TIME_AISLE_ONE_MU)
+            resultDict['AisleTwo'].append(pt.TIME_AISLE_TWO_MU)
+            # variables = [pt.TIME_PER_BAG_MU, pt.TIME_AISLE_ONE_MU, pt.TIME_AISLE_TWO_MU]
+            # # make our input dict hashable
+            # list_data = [[x]*len(result) for x in list_inputs]
+            # list_data.append(result)
+            # for num,data in enumerate(list_data):
+            #     resLists[num] += data
+        return resultDict
 
     def getAnalysisData(self):
         try:
@@ -315,63 +324,115 @@ class Model(object):
             return data
 
     @staticmethod
-    def saveSensitivityAnalysis(resultLists):
+    def saveSensitivityAnalysis(resultDict):
         with open(Model.SENSITIVITY_FILENAME, 'w') as f:
-            for data in resultLists:
-                for val in data:
+            for varName, series in resultDict.items():
+                f.write(varName + '\t')
+                for val in series:
                     f.write(str(val) + '\t')
                 f.write('\n')
 
     @staticmethod
     def openSensitivityAnalysis():
         with open(Model.SENSITIVITY_FILENAME, 'r') as f:
-            rawFile = f.readlines()
+            lines = f.readlines()
         dataDict = {}
-        for data in rawFile:
-            data = data.strip().split()
+        for line in lines:
+            data = line.strip().split()
             dataDict[data[0]] = [float(x) for x in data[1:]]
 
         return dataDict
 
     @staticmethod
     def viewSensitivityAnalysis(dataDict):
-        data = [np.array(x) for x in dataDict.values()]
-        bagTimes, sitDownTimes1, sitDownTimes2, results = data
-
-        import matplotlib.pyplot as plt
-        from matplotlib import cm
-        from mpl_toolkits.mplot3d import Axes3D
-
-        X,Y = np.meshgrid(bagTimes,sitDownTimes1)
-        fig = plt.figure('bagTimes and sitDown1')
-        ax = fig.gca(projection='3d')
-        ax.plot_surface(X,Y, results, cmap=cm.coolwarm)
-
-        X,Y = np.meshgrid(bagTimes,sitDownTimes2)
-        fig = plt.figure('bagTimes and sitDown2')
-        ax = fig.gca(projection='3d')
-        ax.plot_surface(X,Y, results, cmap=cm.coolwarm)
-
-        X,Y = np.meshgrid(sitDownTimes1,sitDownTimes2)
-        fig = plt.figure('sitDown1 and sitDown2')
-        ax = fig.gca(projection='3d')
-        ax.plot_surface(X, Y, results, cmap=cm.coolwarm)
-
-        plt.show()
-
-    def sensitivityAnalysis(self):
-        data = self.getAnalysisData()
-        self.viewSensitivityAnalysis(data)
+        import matplotlib.pyplot as plt
+        from matplotlib import cm
+        from mpl_toolkits.mplot3d import Axes3D
+
+        # data = [np.array(x) for x in dataDict.values()]
+        keys = sorted(dataDict.keys())
+        vals = [dataDict[key] for key in keys]
+        # >>> print(keys)
+        # ['AisleOne', 'AisleTwo', 'BagTime', 'BoardingTime']
+        arr = np.array(vals)
+        inputs = keys.copy()
+        inputs.remove('BoardingTime')
+        from itertools import combinations
+        for var1, var2 in combinations(inputs, 2):
+            # need to only look at constant values of all other variables.
+            # use the median as a good one to slice through
+            otherVars = [var for var in inputs if var not in (var1, var2)]
+            medDict = {var:median(dataDict[var]) for var in otherVars}
+            # print(medDict)
+            usedVals = arr.copy()
+            # print(usedVals)
+            # slice along unused variables
+            for var, medianVal in medDict.items():
+                # which row is this variable stored in our array
+                irow = keys.index(var)
+                row = usedVals[irow]
+                # keep the entries equal to median of that unused variable
+                goodEntryIndices = np.where(row==medianVal)
+                usedVals = usedVals[:, goodEntryIndices]
+                # print(goodEntryIndices)
+            # print(usedVals)
+
+            # extract used data series
+            x1 = usedVals[keys.index(var1)][0]
+            x2 = usedVals[keys.index(var2)][0]
+            Z = usedVals[keys.index('BoardingTime')][0]
+
+            def dev(data):
+                # convert a series of data to deviation from mean, in percent of mean
+                data = np.array(data)
+                m = np.mean(data)
+                percentDeviances = (data-m)/m
+                return percentDeviances
+            # percent = deviances/
+            print(var1, var2)
+            print(x1,x2,Z)
+
+            # X, Y =  np.meshgrid(x1,x2)
+            fig = plt.figure('{} and {}'.format(var1,var2))
+            ax = fig.gca(projection='3d')
+            # ax.plot_surface(x1,x2,Z, cmap=cm.coolwarm)
+            ax.plot_trisurf(dev(x1),dev(x2),dev(Z), cmap=cm.coolwarm)
+            ax.set_xlabel('{} (mean {} seconds)'.format(var1, avg(x1)))
+            ax.set_ylabel('{} (mean {} seconds)'.format(var2, avg(x2)))
+            m, s = toMinutesAndSeconds(round(avg(Z))
+            ax.set_zlabel('Average Boarding Time (mean {}:{:.0f})'.format(m, s)))
+
+        plt.show()
+
+        #
+        # X,Y = np.meshgrid(bagTimes,sitDownTimes1)
+        # fig = plt.figure('bagTimes and sitDown1')
+        # ax = fig.gca(projection='3d')
+        # ax.plot_surface(X,Y, results, cmap=cm.coolwarm)
+        #
+        # X,Y = np.meshgrid(bagTimes,sitDownTimes2)
+        # fig = plt.figure('bagTimes and sitDown2')
+        # ax = fig.gca(projection='3d')
+        # ax.plot_surface(X,Y, results, cmap=cm.coolwarm)
+        #
+        # X,Y = np.meshgrid(sitDownTimes1,sitDownTimes2)
+        # fig = plt.figure('sitDown1 and sitDown2')
+        # ax = fig.gca(projection='3d')
+        # ax.plot_surface(X, Y, results, cmap=cm.coolwarm)
+        #
+        # plt.show()
 
     @staticmethod
     def createPassengerTypes():
-        bagTimes = np.linspace(5,20,5)
-        sitDown1Times = np.linspace(10,25,5)
-        sitDown2Times = np.linspace(15,30,5)
+        bagTimes = np.linspace(5,20,4)
+        sitDown1Times = np.linspace(10,25,4)
+        sitDown2Times = np.linspace(15,30,4)
 
-        from sklearn.utils.extmath import cartesian
+        from itertools import combinations
         passTypes = []
-        for bt, sd1, sd2 in cartesian((bagTimes, sitDown1Times, sitDown2Times)):
+        combos = combinations((bagTimes, sitDown1Times, sitDown2Times))
+        print('generated {} combos'.format(len(combos)))
+        for bt, sd1, sd2 in combos:
             class CustomPassenger(BasePassenger):
                 TIME_PER_BAG_MU    = bt
                 TIME_PER_BAG_SIGMA = bt/6
@@ -383,8 +444,7 @@ class Model(object):
             passTypes.append(CustomPassenger)
         return passTypes
 
-
-    def test(self, params=Simulator.DEFAULT_PARAMS, minRuns=10, convergenceThreshold=.05, minConvergenceCount=5):
+    def test(self, params=Simulator.DEFAULT_PARAMS, minRuns=10, convergenceThreshold=.01, minConvergenceCount=5):
         assert minRuns > 1
         results = []
         convergenceCount = 0
@@ -428,7 +488,6 @@ def stdDev(nums):
     std = var**.5
     return std
 
-
 def runningAvgs(results):
     runningAvgs = []
     for i in range(1, len(results)):
@@ -439,27 +498,51 @@ def runningAvgs(results):
 
 def avg(iterable):
     return sum(iterable)/len(iterable)
-
+
+def median(iterable):
+    s = sorted(iterable)
+    index = len(iterable) // 2
+    return s[index]
+
 def toMinutesAndSeconds(seconds):
     return (int(seconds//60), seconds%60)
-
-#run simulation
-if __name__== "__main__":
-    # sim = Simulator()
-    # viz = visualize.Visualizer(sim)
-    # import time
-    # time.sleep(2)
-    # sim.run()
-
-    # print('Running')
-    m = Model()
-    m.sensitivityAnalysis()
-    # res = m.test()
-    # print(res),
-    # print('time needed was {}:{}'.format(*toMinutesAndSeconds(avg(res))))
-    # avgs = runningAvgs(res)
-    # import matplotlib.pyplot as plt
-    # plt.plot(res)
-    # plt.plot(avgs)
-    # plt.show()
-    # print(('Average was %s seconds and StdDev was %s seconds') % (res[0],res[1]))
+
+def sensitivityAnalysis():
+    m = Model()
+    data = m.getAnalysisData()
+    m.viewSensitivityAnalysis(data)
+
+def visualizeRun():
+    # strategies = ['random', 'backFirst', 'frontFirst']
+    boardingStrategy = 'backFirst'
+    p = {'planeType':Plane, 'passengerType':DefaultPassenger, 'boardingStrategy':boardingStrategy}
+    sim = Simulator(params=p)
+    viz = visualize.Visualizer(sim)
+    res = sim.run()
+    # print(res)
+    print('time needed for {} strategy was {}:{}'.format(boardingStrategy, *toMinutesAndSeconds(res)))
+
+def visualizeConvergence():
+    # run model
+    boardingStrategy = 'backFirst'
+    p = {'planeType':Plane, 'passengerType':DefaultPassenger, 'boardingStrategy':boardingStrategy}
+    m = Model()
+    results = m.test(params=p, convergenceThreshold=.01)
+
+    # display
+    avgs = runningAvgs(results)
+    std = stdDev(results)
+    minutes, sec = toMinutesAndSeconds(avg(results))
+    print('Average boarding time was {}:{}  and StdDev was {} seconds'.format(minutes, sec, std))
+    import matplotlib.pyplot as plt
+    plt.plot(results)
+    plt.plot(avgs)
+    plt.xlabel('Number of Simulation Runs')
+    plt.ylabel('Boarding Time (seconds)')
+    plt.legend(('individual results', 'running average'))
+    plt.show()
+
+if __name__== "__main__":
+    # visualizeRun()
+    # visualizeConvergence()
+    sensitivityAnalysis()
