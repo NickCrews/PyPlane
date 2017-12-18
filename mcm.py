@@ -404,24 +404,6 @@ class Model(object):
 
         plt.show()
 
-        #
-        # X,Y = np.meshgrid(bagTimes,sitDownTimes1)
-        # fig = plt.figure('bagTimes and sitDown1')
-        # ax = fig.gca(projection='3d')
-        # ax.plot_surface(X,Y, results, cmap=cm.coolwarm)
-        #
-        # X,Y = np.meshgrid(bagTimes,sitDownTimes2)
-        # fig = plt.figure('bagTimes and sitDown2')
-        # ax = fig.gca(projection='3d')
-        # ax.plot_surface(X,Y, results, cmap=cm.coolwarm)
-        #
-        # X,Y = np.meshgrid(sitDownTimes1,sitDownTimes2)
-        # fig = plt.figure('sitDown1 and sitDown2')
-        # ax = fig.gca(projection='3d')
-        # ax.plot_surface(X, Y, results, cmap=cm.coolwarm)
-        #
-        # plt.show()
-
     @staticmethod
     def createPassengerTypes():
         bagTimes = np.linspace(5,20,4)
@@ -542,6 +524,6 @@ def visualizeConvergence():
     plt.show()
 
 if __name__== "__main__":
-    visualizeRun('random')
-    # visualizeConvergence()
+    # visualizeRun('backFirst')
+    visualizeConvergence()
     # sensitivityAnalysis()
