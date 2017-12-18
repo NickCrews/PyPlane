@@ -524,6 +524,6 @@ def visualizeConvergence():
     plt.show()
 
 if __name__== "__main__":
-    # visualizeRun('backFirst')
-    visualizeConvergence()
+    visualizeRun('backFirst')
+    # visualizeConvergence()
     # sensitivityAnalysis()
