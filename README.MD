@@ -5,4 +5,4 @@ Models the boarding of passengers on a commercial aircraft using a direct, discr
 run 'python3 mcm.py'. You can uncomment/comment out the various lines in the main method to visualize different things.
 
 # Contributors
-Jacob Miller also helped on this project.
+Jacob Miller, Ella Tulchinsky, Sohair Abdullah, and Adam Jolly also worked on this project.
